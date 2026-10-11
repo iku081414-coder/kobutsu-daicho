@@ -58,12 +58,16 @@ function ageAt(birth, onDate) {
 // ---------- IndexedDB ----------
 const dbp = new Promise((resolve, reject) => {
   if (!('indexedDB' in window)) return reject(new Error('no-idb'));
-  const r = indexedDB.open('kobutsu-daicho', 1);
-  r.onupgradeneeded = () => {
+  const r = indexedDB.open('kobutsu-daicho', 2);
+  r.onupgradeneeded = (e) => {
     const db = r.result;
-    db.createObjectStore('records', { keyPath: 'id' }).createIndex('date', 'date');
-    db.createObjectStore('partners', { keyPath: 'id' });
-    db.createObjectStore('photos', { keyPath: 'id' });
+    if (e.oldVersion < 1) {
+      db.createObjectStore('records', { keyPath: 'id' }).createIndex('date', 'date');
+      db.createObjectStore('partners', { keyPath: 'id' });
+      db.createObjectStore('photos', { keyPath: 'id' });
+    }
+    // v2: よく使う品物
+    if (e.oldVersion < 2) db.createObjectStore('templates', { keyPath: 'id' });
   };
   r.onsuccess = () => resolve(r.result);
   r.onerror = () => reject(r.error);
@@ -87,7 +91,7 @@ function showTab(name) {
   if (name === 'list') renderList();
   if (name === 'stats') renderStats();
   if (name === 'partners') renderPartners();
-  if (name === 'export') renderExportInfo();
+  if (name === 'export') { renderExportInfo(); fillTaxYears(); }
 }
 $$('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
 
@@ -108,7 +112,7 @@ function itemRow(it = {}) {
   const el = document.createElement('div');
   el.className = 'item';
   el.innerHTML = `
-    <div class="item-head"><span class="item-no"></span><button type="button" class="link rm">この品物を消す</button></div>
+    <div class="item-head"><span class="item-no"></span><span class="item-links"><button type="button" class="link fav">よく使う品物に登録</button><button type="button" class="link rm">消す</button></span></div>
     <div class="item-grid">
       <label>品目区分 <em class="req">必須</em>
         <select data-f="category"><option value="">選んでください</option>${CATEGORIES.map((c) => `<option>${esc(c)}</option>`).join('')}</select>
@@ -134,8 +138,51 @@ function itemRow(it = {}) {
     if ($$('#items .item').length <= 1) { clearItem(el); } else { el.remove(); }
     update();
   });
+  $('.fav', el).addEventListener('click', async () => {
+    const v = (k) => $(`[data-f="${k}"]`, el).value.trim();
+    if (!v('name')) { toast('先に品名を入れてください'); return; }
+    const all = await getAll('templates');
+    const same = all.find((t) => t.name === v('name') && t.category === v('category'));
+    await put('templates', { id: same?.id || uid(), category: v('category'), name: v('name'), features: v('features'), special: v('special'), updatedAt: Date.now() });
+    toast(`「${v('name')}」をよく使う品物に登録しました`);
+    refreshTemplatePick();
+  });
   return el;
 }
+
+// ---------- よく使う品物 ----------
+async function refreshTemplatePick() {
+  const ts = (await getAll('templates')).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+  const sel = $('#tplPick');
+  $('#tplRow').hidden = ts.length === 0;
+  sel.innerHTML = '<option value="">よく使う品物から追加…</option>' +
+    ts.map((t) => `<option value="${esc(t.id)}">${esc(t.name)}${t.category ? '（' + esc(t.category) + '）' : ''}</option>`).join('');
+}
+$('#tplPick').addEventListener('change', async (e) => {
+  const t = e.target.value && await getOne('templates', e.target.value);
+  e.target.value = '';
+  if (!t) return;
+  const it = { category: t.category, name: t.name, features: t.features, special: t.special };
+  // 空の品物欄があればそこに入れる。なければ1行足す
+  const empty = $$('#items .item').find((el) => !$('[data-f="name"]', el).value.trim());
+  if (empty) {
+    for (const [k, v] of Object.entries(it)) $(`[data-f="${k}"]`, empty).value = v || '';
+  } else addItem(it);
+  update();
+  const target = empty || $('#items .item:last-child');
+  $('[data-f="features"]', target).focus();
+});
+$('#tplManage').addEventListener('click', async () => {
+  const ts = await getAll('templates');
+  if (!ts.length) return;
+  const list = ts.map((t, i) => `${i + 1}. ${t.name}`).join('\n');
+  const n = prompt(`消したい品物の番号を入れてください：\n${list}`);
+  const t = ts[Number(n) - 1];
+  if (t && confirm(`「${t.name}」をよく使う品物から消しますか？`)) {
+    await del('templates', t.id);
+    refreshTemplatePick();
+  }
+});
 function clearItem(el) { $$('[data-f]', el).forEach((f) => { f.value = f.dataset.f === 'qty' ? '1' : ''; }); }
 function addItem(it) { $('#items').append(itemRow(it)); numberItems(); }
 function numberItems() { $$('#items .item').forEach((el, i) => { $('.item-no', el).textContent = `品物 ${i + 1}`; }); }
@@ -235,7 +282,7 @@ function resetForm() {
   const wasEditing = !!editingId;
   editingId = null;
   clearPhotos();
-  $('#editNote').hidden = true; $('#deleteBtn').hidden = true; $('#saveBtn').textContent = '保存する';
+  $('#editNote').hidden = true; $('#deleteBtn').hidden = true; $('#copyBtn').hidden = true; $('#saveBtn').textContent = '保存する';
   // 担当者は続けて使うことが多いので残す
   const staff = form.staff.value;
   const draft = wasEditing ? readDraft() : null;
@@ -391,10 +438,21 @@ async function openRecord(id) {
     if (ph) photos.push({ id: pid, blob: ph.blob, url: URL.createObjectURL(ph.blob), isNew: false });
   }
   renderPhotos();
-  $('#editNote').hidden = false; $('#deleteBtn').hidden = false; $('#saveBtn').textContent = '直して保存';
+  $('#editNote').hidden = false; $('#deleteBtn').hidden = false; $('#copyBtn').hidden = false; $('#saveBtn').textContent = '直して保存';
   showTab('form');
   $('#app').scrollIntoView();
 }
+
+/** 編集中の記録を元に、今日の日付で新しい記録を書き始める（写真は引き継がない） */
+$('#copyBtn').addEventListener('click', () => {
+  const s = formState();
+  editingId = null;
+  clearPhotos();
+  $('#editNote').hidden = true; $('#deleteBtn').hidden = true; $('#copyBtn').hidden = true; $('#saveBtn').textContent = '保存する';
+  setForm({ ...s, date: today(), savePartner: true });
+  toast('コピーしました。日付は今日になっています');
+  $('#items [data-f="features"]').focus();
+});
 
 $('#deleteBtn').addEventListener('click', async () => {
   if (!editingId || !confirm('この記録を削除しますか？（元に戻せません）')) return;
@@ -618,17 +676,83 @@ function rowsOf(rs) {
   return rows;
 }
 
-$('#printBtn').addEventListener('click', async () => {
-  const { rs, from, to } = await recordsInRange();
-  if (rs.length === 0) { toast('この期間の記録はありません'); return; }
+function printLedger(rs, title, from, to) {
   const rows = rowsOf(rs);
   const cols = COLS.filter((c) => c !== '備考');
   $('#print').innerHTML = `
-    <h1>古物台帳</h1>
+    <h1>${esc(title)}</h1>
     <p class="meta">期間：${esc(from || '最初')} 〜 ${esc(to || '最後')}　件数：${rs.length}件　出力日：${today()}</p>
     <table><thead><tr>${cols.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead>
     <tbody>${rows.map((r) => `<tr>${r.slice(0, cols.length).map((v, i) => `<td class="${i === 6 || i === 7 ? 'num' : ''}">${esc(i === 7 && v ? yen(v) : v)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+  window.print();
+}
+
+$('#printBtn').addEventListener('click', async () => {
+  const { rs, from, to } = await recordsInRange();
+  if (rs.length === 0) { toast('この期間の記録はありません'); return; }
   track('export-print');
+  printLedger(rs, '古物台帳', from, to);
+});
+
+// 警察の立入り用：保存義務のある過去3年分を、区分を問わずまとめて出す
+$('#inspectBtn').addEventListener('click', async () => {
+  const d = new Date();
+  const from = toISODate(new Date(d.getFullYear() - 3, d.getMonth(), d.getDate()));
+  const rs = (await getAll('records')).filter((r) => r.date >= from)
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+  if (rs.length === 0) { toast('過去3年の記録はありません'); return; }
+  track('export-inspection');
+  printLedger(rs, '古物台帳（過去3年分）', from, today());
+});
+
+// ---------- 確定申告用 ----------
+async function fillTaxYears() {
+  const years = new Set((await getAll('records')).map((r) => r.date.slice(0, 4)));
+  years.add(String(new Date().getFullYear()));
+  const sel = $('#taxYear'), cur = sel.value;
+  sel.innerHTML = [...years].sort().reverse().map((y) => `<option value="${y}">${y}年</option>`).join('');
+  if ([...years].includes(cur)) sel.value = cur;
+}
+async function recordsOfYear() {
+  const y = $('#taxYear').value;
+  const rs = (await getAll('records')).filter((r) => r.date.startsWith(y))
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt - b.createdAt);
+  return { y, rs };
+}
+
+// 多くの会計ソフトで取り込める、基本の仕訳の形（仕入れ＝仕入高／現金、売上＝現金／売上高）
+$('#journalBtn').addEventListener('click', async () => {
+  const { y, rs } = await recordsOfYear();
+  const money = $('#taxAccount').value;
+  const target = rs.filter((r) => r.total > 0);
+  if (target.length === 0) { toast(`${y}年の金額のある記録はありません`); return; }
+  const head = ['日付', '借方勘定科目', '借方金額', '貸方勘定科目', '貸方金額', '摘要'];
+  const rows = target.map((r) => {
+    const memo = `${r.kind === '受入' ? '仕入' : '売上'} ${itemsLabel(r)}${r.partner?.name ? ' / ' + r.partner.name : ''}`;
+    const d = r.date.replaceAll('-', '/');
+    return r.kind === '受入' ? [d, '仕入高', r.total, money, r.total, memo] : [d, money, r.total, '売上高', r.total, memo];
+  });
+  const lines = [head, ...rows].map((r) => r.map(csvCell).join(','));
+  download(`仕訳_${y}年_古物台帳.csv`, new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv' }));
+  track('export-journal');
+});
+
+$('#yearSumBtn').addEventListener('click', async () => {
+  const { y, rs } = await recordsOfYear();
+  if (rs.length === 0) { toast(`${y}年の記録はありません`); return; }
+  const m = Array.from({ length: 12 }, () => ({ inN: 0, inY: 0, outN: 0, outY: 0 }));
+  for (const r of rs) {
+    const x = m[Number(r.date.slice(5, 7)) - 1];
+    if (r.kind === '受入') { x.inN++; x.inY += r.total || 0; } else { x.outN++; x.outY += r.total || 0; }
+  }
+  const T = m.reduce((a, x) => ({ inN: a.inN + x.inN, inY: a.inY + x.inY, outN: a.outN + x.outN, outY: a.outY + x.outY }), { inN: 0, inY: 0, outN: 0, outY: 0 });
+  const row = (label, x) => `<tr><th>${label}</th><td class="num">${x.inN}</td><td class="num">${yen(x.inY)}</td><td class="num">${x.outN}</td><td class="num">${yen(x.outY)}</td><td class="num">${yen(x.outY - x.inY)}</td></tr>`;
+  $('#print').innerHTML = `
+    <h1>${esc(y)}年 仕入れ・売上の集計（古物台帳より）</h1>
+    <p class="meta">出力日：${today()}　※台帳に記録した金額の合計です。経費や在庫の増減は含みません。</p>
+    <table><thead><tr><th>月</th><th>仕入れ件数</th><th>仕入れ金額</th><th>売上件数</th><th>売上金額</th><th>差額</th></tr></thead>
+    <tbody>${m.map((x, i) => row(`${i + 1}月`, x)).join('')}${row('合計', T)}</tbody></table>`;
+  track('export-yearsum');
   window.print();
 });
 
@@ -656,10 +780,10 @@ const blobToB64 = (b) => new Promise((res, rej) => { const fr = new FileReader()
 function b64ToBlob(b64, type) { const bin = atob(b64); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new Blob([u], { type }); }
 
 $('#backupBtn').addEventListener('click', async () => {
-  const [records, partners, ph] = await Promise.all([getAll('records'), getAll('partners'), getAll('photos')]);
+  const [records, partners, ph, templates] = await Promise.all([getAll('records'), getAll('partners'), getAll('photos'), getAll('templates')]);
   const photosOut = [];
   for (const p of ph) photosOut.push({ id: p.id, type: p.type || p.blob.type, data: await blobToB64(p.blob) });
-  const data = { app: 'kobutsu-daicho', version: 1, exportedAt: new Date().toISOString(), records, partners, photos: photosOut };
+  const data = { app: 'kobutsu-daicho', version: 1, exportedAt: new Date().toISOString(), records, partners, templates, photos: photosOut };
   download(`古物台帳バックアップ_${today()}.json`, new Blob([JSON.stringify(data)], { type: 'application/json' }));
   lsSet(LS.backup, String(Date.now()));
   track('backup');
@@ -678,9 +802,11 @@ $('#restoreInput').addEventListener('change', async (e) => {
   try {
     for (const p of data.photos || []) await put('photos', { id: p.id, type: p.type, blob: b64ToBlob(p.data, p.type) });
     for (const p of data.partners || []) await put('partners', p);
+    for (const t of data.templates || []) await put('templates', t);
     for (const r of data.records) await put('records', r);
     toast('バックアップから戻しました');
     refreshPartnerPick();
+    refreshTemplatePick();
     renderExportInfo();
     checkBackupBanner();
   } catch (err) {
@@ -692,11 +818,12 @@ $('#restoreInput').addEventListener('change', async (e) => {
 $('#wipeBtn').addEventListener('click', async () => {
   if (!confirm('この端末の古物台帳のデータをすべて消します。先にバックアップを保存しましたか？')) return;
   if (prompt('本当に消す場合は「消す」と入力してください') !== '消す') return;
-  await Promise.all(['records', 'partners', 'photos'].map(clearStore));
+  await Promise.all(['records', 'partners', 'photos', 'templates'].map(clearStore));
   lsDel(LS.draft);
   toast('すべて消しました');
   resetForm();
   refreshPartnerPick();
+  refreshTemplatePick();
   renderExportInfo();
 });
 
@@ -758,7 +885,7 @@ async function checkBackupBanner() {
   setForm(draft || {});
   if (hasDraft) toast('書きかけの下書きを戻しました');
 
-  await refreshPartnerPick();
+  await Promise.all([refreshPartnerPick(), refreshTemplatePick()]);
   if (hasDraft && draft.partnerId) $('#partnerPick').value = draft.partnerId;
   checkBackupBanner();
 

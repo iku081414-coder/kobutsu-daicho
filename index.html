@@ -37,6 +37,7 @@
       <li>「この仕入れ、書く必要ある？」の<b>1万円ルールの目安</b>を表示</li>
       <li>警察の立入りにも、<b>PDF・印刷・CSV</b>ですぐ出せる</li>
       <li>仕入れと売上を<b>月ごとのグラフ</b>で。品目ごと・相手ごとの集計も</li>
+      <li>警察の立入りには<b>過去3年分をボタン1つ</b>で。確定申告用の<b>会計ソフト向けCSV</b>も</li>
     </ul>
     <a class="btn primary" href="#app">今すぐ書く</a>
   </div>
@@ -76,6 +77,10 @@
 
       <fieldset>
         <legend>品物</legend>
+        <div id="tplRow" class="tpl-row" hidden>
+          <select id="tplPick" aria-label="よく使う品物から追加"></select>
+          <button type="button" class="link" id="tplManage">登録を消す</button>
+        </div>
         <div id="items"></div>
         <button type="button" class="btn ghost small" id="addItem">＋ 品物を追加</button>
         <div class="total-row">
@@ -167,6 +172,7 @@
       <div class="actions">
         <button type="submit" class="btn primary" id="saveBtn">保存する</button>
         <button type="button" class="btn ghost" id="clearBtn">入力を消す</button>
+        <button type="button" class="btn ghost" id="copyBtn" hidden>コピーして新しく書く</button>
         <button type="button" class="btn danger" id="deleteBtn" hidden>この記録を削除</button>
       </div>
       <p class="hint">入力中の内容は自動で下書き保存されます（この端末だけ）。</p>
@@ -239,6 +245,28 @@
     </section>
 
     <section class="box">
+      <h3>警察の立入りがあったら</h3>
+      <p>保存が必要な<b>過去3年分</b>の台帳を、ボタン1つで印刷・PDFにできます。法律で決められた項目（年月日・品目・数量・特徴・相手方の住所氏名職業年齢・確認の方法）がすべて入ります。</p>
+      <button class="btn primary" id="inspectBtn">立入り用に出す（過去3年分）</button>
+    </section>
+
+    <section class="box">
+      <h3>確定申告用</h3>
+      <div class="filters">
+        <label>年 <select id="taxYear"></select></label>
+        <label>お金の出入りの科目
+          <select id="taxAccount"><option>現金</option><option>普通預金</option></select>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="journalBtn">会計ソフト用のCSV（仕訳）</button>
+        <button class="btn ghost" id="yearSumBtn">1年の集計表（印刷・PDF）</button>
+      </div>
+      <p class="hint">仕入れは「仕入高／現金」、売上は「現金／売上高」の形で1件1行にします。多くの会計ソフトの「仕訳のインポート」で、列を合わせて取り込めます。送料や手数料などの経費は含みません。</p>
+      <p class="hint">会計ソフトの例：<a href="https://www.freee.co.jp/kojin/" rel="noopener" target="_blank">freee会計</a>／<a href="https://biz.moneyforward.com/tax_return/" rel="noopener" target="_blank">マネーフォワード クラウド確定申告</a></p>
+    </section>
+
+    <section class="box">
       <h3>バックアップ（必ずときどき）</h3>
       <p>データはこの端末のブラウザの中だけにあります。<b>端末の故障・機種変更・ブラウザのデータ削除で消えます</b>。古物台帳は3年の保存が必要なので、月に1回はバックアップを保存してください。</p>
       <p id="backupInfo" class="summary"></p>
@@ -303,6 +331,12 @@
 
   <h3>売ったとき（払い出し）も書く？</h3>
   <p>売ったときの記録が必要なのは、美術品類・時計・宝飾品類・自動車・バイクなど一部の品物です。それ以外は、受け入れの記録が中心です。</p>
+
+  <h3>警察の立入りのときは？</h3>
+  <p>警察から台帳を見せるよう求められたら、すぐに見せられる状態にしておく必要があります。電子で記録している場合は、すぐ紙に出せることが条件です。このアプリでは「出力・保存」の<b>立入り用に出す</b>で、過去3年分をまとめて印刷・PDFにできます。</p>
+
+  <h3>確定申告にも使える？</h3>
+  <p>台帳の金額から、1年分の仕入れと売上を集計できます。「出力・保存」の<b>会計ソフト用のCSV</b>で、仕入れと売上を仕訳の形にして書き出せます。送料・手数料などの経費や在庫の増減は含まないので、申告では会計ソフトや税理士の案内に従って足してください。</p>
 
   <h3>よくある質問</h3>
   <details><summary>データはどこに保存されますか？</summary><p>あなたが使っている端末のブラウザの中だけです。作者のサーバーにも、ほかの会社のサーバーにも送りません。例外として「住所を入れる」ボタンを押したときだけ、<b>郵便番号だけ</b>を住所検索サービス（zipcloud）に送ります。</p></details>

@@ -114,6 +114,10 @@ input[type="checkbox"], input[type="radio"] { display: inline; width: auto; min-
 .item { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; margin-bottom: 10px; background: var(--bg); }
 .item input, .item select { background: var(--card); }
 .item-head { display: flex; justify-content: space-between; align-items: center; font-weight: 700; margin-bottom: 4px; }
+.item-links { display: flex; gap: 14px; font-weight: 400; font-size: 14px; }
+.tpl-row { display: flex; gap: 12px; align-items: center; margin-bottom: 10px; }
+.tpl-row select { margin-top: 0; flex: 1; }
+.tpl-row .link { font-size: 13px; white-space: nowrap; }
 .item-grid { display: grid; gap: 0 10px; grid-template-columns: 1fr 1fr; }
 /* スマホ：数量と金額だけ横並び、ほかは1列 */
 .item-grid > label { grid-column: 1 / -1; }
