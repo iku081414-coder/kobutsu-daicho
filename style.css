@@ -161,6 +161,26 @@ input[type="checkbox"], input[type="radio"] { display: inline; width: auto; min-
 .tag.out { background: var(--warn-soft); color: var(--warn); }
 .empty { text-align: center; color: var(--muted); padding: 24px 0; }
 
+.cards { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 4px 0 12px; }
+.card { border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 12px; background: var(--bg); display: grid; line-height: 1.5; }
+.card span { font-size: 12px; color: var(--muted); }
+.card b { font-size: 19px; }
+.card small { font-size: 12px; color: var(--muted); }
+.chart-title { font-size: 15px; margin: 18px 0 4px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.chart .grid-line { stroke: var(--line); stroke-width: 1; }
+.chart .axis { fill: var(--muted); font-size: 11px; }
+.chart .label { fill: var(--text); font-size: 13px; }
+.bar-in { fill: var(--accent); }
+.bar-out { fill: #d08a1e; }
+.legend { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.key { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-left: 8px; }
+.key.in { background: var(--accent); }
+.key.out { background: #d08a1e; }
+.top-list { margin: 0; padding-left: 1.4em; }
+.top-list li { padding: 4px 0; border-bottom: 1px solid var(--line); }
+.top-list li span:last-child { float: right; color: var(--muted); font-size: 14px; }
+
 .box { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; margin-bottom: 14px; }
 .box h3 { margin: 0 0 8px; font-size: 16px; }
 .want-btns { display: flex; flex-wrap: wrap; gap: 8px; }

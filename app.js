@@ -85,6 +85,7 @@ function showTab(name) {
   $$('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   $$('.panel').forEach((p) => { p.hidden = p.dataset.panel !== name; });
   if (name === 'list') renderList();
+  if (name === 'stats') renderStats();
   if (name === 'partners') renderPartners();
   if (name === 'export') renderExportInfo();
 }
@@ -433,6 +434,125 @@ async function renderList() {
 }
 ['#fMonth', '#fAll', '#fKind'].forEach((s) => $(s).addEventListener('change', renderList));
 $('#fText').addEventListener('input', renderList);
+
+// ---------- 集計・グラフ ----------
+const SVG_NS = 'http://www.w3.org/2000/svg';
+function svgEl(tag, attrs = {}, text) {
+  const e = document.createElementNS(SVG_NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+}
+/** 目盛りが切りのいい数になる上限 */
+function niceMax(v) {
+  if (v <= 0) return 10000;
+  const p = 10 ** Math.floor(Math.log10(v));
+  return [1, 1.2, 1.6, 2, 2.4, 3, 4, 5, 6, 8, 10].map((m) => m * p).find((m) => m >= v);
+}
+const shortYen = (n) => (n >= 10000 ? `${+(n / 10000).toFixed(1)}万` : yen(n));
+
+function monthKeys(range, rs) {
+  const now = new Date();
+  const key = (d) => toISODate(d).slice(0, 7);
+  let start;
+  if (range === 'year') start = new Date(now.getFullYear(), 0, 1);
+  else if (range === 'all') {
+    const first = rs.map((r) => r.date).sort()[0];
+    start = first ? new Date(first.slice(0, 7) + '-01T00:00') : new Date(now.getFullYear(), now.getMonth(), 1);
+  } else start = new Date(now.getFullYear(), now.getMonth() - (Number(range) - 1), 1);
+  const keys = [];
+  for (let d = new Date(start); key(d) <= key(now); d.setMonth(d.getMonth() + 1)) keys.push(key(d));
+  return keys.slice(-36); // 多すぎると読めないので最大3年
+}
+
+function drawMonthly(keys, inBy, outBy) {
+  const W = 640, H = 240, L = 48, B = 28, T = 12, R = 8;
+  const max = niceMax(Math.max(0, ...keys.map((k) => Math.max(inBy[k] || 0, outBy[k] || 0))));
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '月ごとの仕入れと売上の棒グラフ' });
+  const plotH = H - B - T, slot = (W - L - R) / keys.length, bw = Math.max(3, Math.min(18, slot * 0.36));
+  for (let i = 0; i <= 4; i++) {
+    const y = T + plotH - (plotH * i) / 4;
+    svg.append(svgEl('line', { x1: L, x2: W - R, y1: y, y2: y, class: 'grid-line' }));
+    svg.append(svgEl('text', { x: L - 6, y: y + 4, class: 'axis', 'text-anchor': 'end' }, shortYen((max * i) / 4)));
+  }
+  const every = Math.ceil(keys.length / 12);
+  keys.forEach((k, i) => {
+    const cx = L + slot * i + slot / 2;
+    const vals = [[inBy[k] || 0, 'bar-in', '仕入れ'], [outBy[k] || 0, 'bar-out', '売上']];
+    vals.forEach(([v, cls, label], j) => {
+      const h = (plotH * v) / max;
+      const rect = svgEl('rect', { x: cx - bw + j * bw, y: T + plotH - h, width: bw - 1, height: Math.max(0, h), class: cls, rx: 2 });
+      rect.append(svgEl('title', {}, `${k.replace('-', '年')}月 ${label} ${yen(v)}円`));
+      svg.append(rect);
+    });
+    if (i % every === 0) {
+      const m = Number(k.slice(5));
+      svg.append(svgEl('text', { x: cx, y: H - 8, class: 'axis', 'text-anchor': 'middle' }, m === 1 || i === 0 ? `${k.slice(2, 4)}/${m}` : `${m}月`));
+    }
+  });
+  return svg;
+}
+
+function drawHBars(rows) {
+  // rows: [{ label, a, b }]  a=仕入れ b=売上
+  const W = 640, rowH = 34, L = 150, R = 90, H = rows.length * rowH + 4;
+  const max = niceMax(Math.max(1, ...rows.map((r) => Math.max(r.a, r.b))));
+  const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': '品目区分ごとの仕入れと売上' });
+  rows.forEach((r, i) => {
+    const y = i * rowH + 4, span = W - L - R;
+    svg.append(svgEl('text', { x: L - 8, y: y + 18, class: 'label', 'text-anchor': 'end' }, r.label.length > 10 ? r.label.slice(0, 10) + '…' : r.label));
+    svg.append(svgEl('rect', { x: L, y, width: Math.max(r.a ? 2 : 0, (span * r.a) / max), height: 12, class: 'bar-in', rx: 2 }));
+    svg.append(svgEl('rect', { x: L, y: y + 14, width: Math.max(r.b ? 2 : 0, (span * r.b) / max), height: 12, class: 'bar-out', rx: 2 }));
+    svg.append(svgEl('text', { x: W - R + 6, y: y + 11, class: 'axis' }, r.a ? shortYen(r.a) + '円' : ''));
+    svg.append(svgEl('text', { x: W - R + 6, y: y + 25, class: 'axis' }, r.b ? shortYen(r.b) + '円' : ''));
+  });
+  return svg;
+}
+
+async function renderStats() {
+  const range = $('#sRange').value;
+  const all = await getAll('records');
+  const keys = monthKeys(range, all);
+  const from = keys[0], to = keys[keys.length - 1];
+  const rs = all.filter((r) => r.date.slice(0, 7) >= from && r.date.slice(0, 7) <= to);
+  const ins = rs.filter((r) => r.kind === '受入'), outs = rs.filter((r) => r.kind === '払出');
+  const sum = (a) => a.reduce((s, r) => s + (r.total || 0), 0);
+  const tIn = sum(ins), tOut = sum(outs);
+  $('#sIn').textContent = `${yen(tIn)}円`; $('#sInN').textContent = `${ins.length}件`;
+  $('#sOut').textContent = `${yen(tOut)}円`; $('#sOutN').textContent = `${outs.length}件`;
+  $('#sDiff').textContent = `${tOut - tIn < 0 ? '−' : ''}${yen(Math.abs(tOut - tIn))}円`;
+
+  const inBy = {}, outBy = {};
+  for (const r of rs) {
+    const m = r.date.slice(0, 7), t = r.kind === '受入' ? inBy : outBy;
+    t[m] = (t[m] || 0) + (r.total || 0);
+  }
+  const mBox = $('#chartMonthly');
+  mBox.replaceChildren(rs.length ? drawMonthly(keys, inBy, outBy) : Object.assign(document.createElement('p'), { className: 'empty', textContent: 'この期間の記録はまだありません。' }));
+
+  const cat = {};
+  for (const r of rs) for (const it of r.items) {
+    const c = it.category || '未分類';
+    cat[c] ??= { label: c, a: 0, b: 0 };
+    cat[c][r.kind === '受入' ? 'a' : 'b'] += Number(it.price) || 0;
+  }
+  const catRows = Object.values(cat).sort((x, y) => (y.a + y.b) - (x.a + x.b)).slice(0, 8);
+  $('#chartCategory').replaceChildren(catRows.length ? drawHBars(catRows) : Object.assign(document.createElement('p'), { className: 'empty', textContent: '—' }));
+
+  const byP = {};
+  for (const r of ins) {
+    const n = r.partner?.name;
+    if (!n) continue;
+    byP[n] ??= { n: 0, y: 0 };
+    byP[n].n++; byP[n].y += r.total || 0;
+  }
+  const top = Object.entries(byP).sort((a, b) => b[1].n - a[1].n || b[1].y - a[1].y).slice(0, 5);
+  $('#topPartners').innerHTML = top.length
+    ? `<ol class="top-list">${top.map(([n, v]) => `<li><span>${esc(n)}</span><span>${v.n}件・${yen(v.y)}円</span></li>`).join('')}</ol>`
+    : '<p class="empty">—</p>';
+  track('stats-view');
+}
+$('#sRange').addEventListener('change', renderStats);
 
 // ---------- 取引相手の一覧 ----------
 async function renderPartners() {

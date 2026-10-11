@@ -33,6 +33,7 @@
       <li>取引相手を保存して、2回目からは<b>選ぶだけ</b></li>
       <li>「この仕入れ、書く必要ある？」の<b>1万円ルールの目安</b>を表示</li>
       <li>警察の立入りにも、<b>PDF・印刷・CSV</b>ですぐ出せる</li>
+      <li>仕入れと売上を<b>月ごとのグラフ</b>で。品目ごと・相手ごとの集計も</li>
     </ul>
     <a class="btn primary" href="#app">今すぐ書く</a>
   </div>
@@ -44,6 +45,7 @@
   <nav class="tabs" role="tablist">
     <button role="tab" data-tab="form" aria-selected="true">記録する</button>
     <button role="tab" data-tab="list">台帳一覧</button>
+    <button role="tab" data-tab="stats">集計・グラフ</button>
     <button role="tab" data-tab="partners">取引相手</button>
     <button role="tab" data-tab="export">出力・保存</button>
   </nav>
@@ -180,6 +182,33 @@
     </div>
     <p id="listSummary" class="summary"></p>
     <div id="recList" class="rec-list"></div>
+  </div>
+
+  <!-- 集計・グラフ -->
+  <div class="panel" data-panel="stats" hidden>
+    <div class="filters">
+      <label>期間
+        <select id="sRange">
+          <option value="12">過去12か月</option>
+          <option value="year">今年</option>
+          <option value="6">過去6か月</option>
+          <option value="all">すべて</option>
+        </select>
+      </label>
+    </div>
+    <div class="cards">
+      <div class="card"><span>仕入れ（受け入れ）</span><b id="sIn">0円</b><small id="sInN"></small></div>
+      <div class="card"><span>売上（払い出し）</span><b id="sOut">0円</b><small id="sOutN"></small></div>
+      <div class="card"><span>差額（売上−仕入れ）</span><b id="sDiff">0円</b><small>目安</small></div>
+    </div>
+    <h3 class="chart-title">月ごとの仕入れと売上</h3>
+    <div class="legend"><span class="key in"></span>仕入れ <span class="key out"></span>売上</div>
+    <div id="chartMonthly" class="chart"></div>
+    <h3 class="chart-title">品目区分ごとの金額</h3>
+    <div id="chartCategory" class="chart"></div>
+    <h3 class="chart-title">よく取引する相手（仕入れ）</h3>
+    <div id="topPartners"></div>
+    <p class="hint">差額は、期間内の売上から仕入れを引いた目安です（在庫の増減は含みません）。払い出しの記録に売った金額を入れると、売上のグラフに出ます。</p>
   </div>
 
   <!-- 取引相手 -->
