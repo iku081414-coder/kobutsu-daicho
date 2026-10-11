@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self' https://zipcloud.ibsnet.co.jp; object-src 'none'; base-uri 'self'; form-action 'none'">
+<title>古物台帳アプリ（無料・登録不要）｜スマホとPCで書ける電子の古物台帳</title>
+<meta name="description" content="古物商の台帳（帳簿）を、スマホ・PCで無料で書けるWebアプリ。登録不要で、データはあなたの端末の中だけに保存。取引相手の呼び出し、1万円ルールの目安、PDF・CSV出力に対応。">
+<meta name="theme-color" content="#1f4d3a">
+<meta property="og:type" content="website">
+<meta property="og:title" content="古物台帳アプリ（無料・登録不要）">
+<meta property="og:description" content="古物商の台帳を、スマホ・PCで無料で。データは端末の中だけ。PDF・CSV出力、1万円ルールの目安つき。">
+<meta name="twitter:card" content="summary">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="logo" href="./"><img src="icons/icon.svg" alt="" width="28" height="28">古物台帳</a>
+    <span class="head-note">無料・登録不要</span>
+  </div>
+</header>
+
+<main>
+<section class="hero">
+  <div class="wrap">
+    <h1>古物台帳を、スマホとPCで。<br>無料・登録なしで、今すぐ書ける。</h1>
+    <ul class="points">
+      <li><b>データはあなたの端末の中だけ</b>。どこのサーバーにも送りません</li>
+      <li>取引相手を保存して、2回目からは<b>選ぶだけ</b></li>
+      <li>「この仕入れ、書く必要ある？」の<b>1万円ルールの目安</b>を表示</li>
+      <li>警察の立入りにも、<b>PDF・印刷・CSV</b>ですぐ出せる</li>
+    </ul>
+    <a class="btn primary" href="#app">今すぐ書く</a>
+  </div>
+</section>
+
+<section id="app" class="wrap app" aria-label="古物台帳">
+  <div id="banner" class="banner" hidden></div>
+
+  <nav class="tabs" role="tablist">
+    <button role="tab" data-tab="form" aria-selected="true">記録する</button>
+    <button role="tab" data-tab="list">台帳一覧</button>
+    <button role="tab" data-tab="partners">取引相手</button>
+    <button role="tab" data-tab="export">出力・保存</button>
+  </nav>
+
+  <!-- 記録する -->
+  <div class="panel" data-panel="form">
+    <form id="recForm" autocomplete="off" novalidate>
+      <div id="editNote" class="edit-note" hidden>編集中の記録です。<button type="button" class="link" id="cancelEdit">新しく書くに戻る</button></div>
+
+      <fieldset>
+        <legend>取引</legend>
+        <div class="seg" role="radiogroup" aria-label="区分">
+          <label><input type="radio" name="kind" value="受入" checked><span>受け入れ（買取・交換・委託）</span></label>
+          <label><input type="radio" name="kind" value="払出"><span>払い出し（売却など）</span></label>
+        </div>
+        <div class="grid2">
+          <label>取引の種類
+            <select name="txType"></select>
+          </label>
+          <label>取引年月日 <em class="req">必須</em>
+            <input type="date" name="date" required>
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>品物</legend>
+        <div id="items"></div>
+        <button type="button" class="btn ghost small" id="addItem">＋ 品物を追加</button>
+        <div class="total-row">
+          <span>合計 <b id="totalYen">0</b> 円</span>
+          <span id="judge" class="judge" hidden></span>
+        </div>
+        <p id="judgeNote" class="hint" hidden></p>
+        <div class="photos">
+          <label class="btn ghost small file-btn">📷 品物の写真を付ける
+            <input type="file" id="photoInput" accept="image/*" multiple hidden>
+          </label>
+          <div id="photoList" class="photo-list"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>相手方</legend>
+        <label>保存した相手から選ぶ
+          <select id="partnerPick"><option value="">（新しい相手を入力）</option></select>
+        </label>
+        <div class="grid2">
+          <label>氏名（会社名） <em class="req" data-req>必須</em>
+            <input name="pName" autocomplete="off">
+          </label>
+          <label>職業 <em class="req" data-req>必須</em>
+            <input name="pJob" list="jobList" placeholder="会社員、自営業 など">
+            <datalist id="jobList"><option>会社員</option><option>自営業</option><option>公務員</option><option>パート・アルバイト</option><option>学生</option><option>主婦・主夫</option><option>無職</option><option>会社役員</option></datalist>
+          </label>
+        </div>
+        <div class="grid3">
+          <label>郵便番号
+            <span class="inline"><input name="pZip" inputmode="numeric" placeholder="1000001" maxlength="8"><button type="button" class="btn ghost small" id="zipBtn">住所を入れる</button></span>
+          </label>
+          <label class="span2">住所 <em class="req" data-req>必須</em>
+            <input name="pAddress">
+          </label>
+        </div>
+        <div class="grid3">
+          <label>生年月日
+            <input type="date" name="pBirth">
+          </label>
+          <label>年齢 <em class="req" data-req>必須</em>
+            <input name="pAge" inputmode="numeric" placeholder="生年月日から自動">
+          </label>
+          <label>電話（任意）
+            <input name="pPhone" inputmode="tel">
+          </label>
+        </div>
+        <label class="check"><input type="checkbox" name="savePartner" checked> この相手を保存して、次から選べるようにする</label>
+      </fieldset>
+
+      <fieldset>
+        <legend>本人確認</legend>
+        <div class="grid2">
+          <label>確認の方法 <em class="req" data-req>必須</em>
+            <select name="idMethod">
+              <option value="">選んでください</option>
+              <optgroup label="対面">
+                <option>運転免許証の提示</option>
+                <option>マイナンバーカードの提示（表面）</option>
+                <option>健康保険証等の提示</option>
+                <option>在留カード・特別永住者証明書の提示</option>
+                <option>その他の身分証明書の提示</option>
+              </optgroup>
+              <optgroup label="非対面">
+                <option>本人限定受取郵便等で確認</option>
+                <option>電子署名・公的個人認証で確認</option>
+                <option>身分証の写し＋転送不要郵便等で確認</option>
+              </optgroup>
+              <optgroup label="その他">
+                <option>その他（備考に記入）</option>
+              </optgroup>
+            </select>
+          </label>
+          <label>書類の番号など（任意）
+            <input name="idNote" placeholder="例：免許証番号の下4桁">
+          </label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>その他</legend>
+        <div class="grid2">
+          <label>担当者（任意）<input name="staff"></label>
+          <label>備考（任意）<input name="memo"></label>
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="saveBtn">保存する</button>
+        <button type="button" class="btn ghost" id="clearBtn">入力を消す</button>
+        <button type="button" class="btn danger" id="deleteBtn" hidden>この記録を削除</button>
+      </div>
+      <p class="hint">入力中の内容は自動で下書き保存されます（この端末だけ）。</p>
+    </form>
+  </div>
+
+  <!-- 台帳一覧 -->
+  <div class="panel" data-panel="list" hidden>
+    <div class="filters">
+      <label>月 <input type="month" id="fMonth"></label>
+      <label class="check"><input type="checkbox" id="fAll"> すべての期間</label>
+      <label>区分
+        <select id="fKind"><option value="">すべて</option><option>受入</option><option>払出</option></select>
+      </label>
+      <label class="grow">検索 <input type="search" id="fText" placeholder="品名・相手の名前・特徴"></label>
+    </div>
+    <p id="listSummary" class="summary"></p>
+    <div id="recList" class="rec-list"></div>
+  </div>
+
+  <!-- 取引相手 -->
+  <div class="panel" data-panel="partners" hidden>
+    <p class="hint">保存した相手の情報を直すと、<b>次からの記録</b>に使われます（過去の記録は、その時の内容のまま残ります）。</p>
+    <div id="partnerList" class="rec-list"></div>
+  </div>
+
+  <!-- 出力・保存 -->
+  <div class="panel" data-panel="export" hidden>
+    <section class="box">
+      <h3>台帳を出す（印刷・PDF・CSV）</h3>
+      <div class="filters">
+        <label>開始日 <input type="date" id="exFrom"></label>
+        <label>終了日 <input type="date" id="exTo"></label>
+        <label>区分
+          <select id="exKind"><option value="">すべて</option><option>受入</option><option>払出</option></select>
+        </label>
+      </div>
+      <div class="actions">
+        <button class="btn primary" id="printBtn">印刷・PDFで保存</button>
+        <button class="btn ghost" id="csvBtn">CSV（Excel用）で保存</button>
+      </div>
+      <p class="hint">PDFにするには、印刷の画面で「PDFとして保存」を選びます（スマホは共有→プリント→拡大して共有 でも保存できます）。</p>
+    </section>
+
+    <section class="box">
+      <h3>バックアップ（必ずときどき）</h3>
+      <p>データはこの端末のブラウザの中だけにあります。<b>端末の故障・機種変更・ブラウザのデータ削除で消えます</b>。古物台帳は3年の保存が必要なので、月に1回はバックアップを保存してください。</p>
+      <p id="backupInfo" class="summary"></p>
+      <div class="actions">
+        <button class="btn primary" id="backupBtn">バックアップを保存（写真込み）</button>
+        <label class="btn ghost file-btn">バックアップから戻す
+          <input type="file" id="restoreInput" accept="application/json,.json" hidden>
+        </label>
+      </div>
+      <p id="persistInfo" class="hint"></p>
+    </section>
+
+    <section class="box want">
+      <h3>こんな機能があったら、お金を払っても使いたい？</h3>
+      <p class="hint">押してもらえると、作る順番の参考になります（押したことだけが記録され、台帳の中身は送られません）。</p>
+      <div class="want-btns">
+        <button class="btn ghost small" data-want="sync">スマホとPCで同じ台帳を使う</button>
+        <button class="btn ghost small" data-want="stock">在庫・売上・利益の管理</button>
+        <button class="btn ghost small" data-want="ocr">身分証の読み取りで自動入力</button>
+        <button class="btn ghost small" data-want="multi">複数の店舗・担当者</button>
+      </div>
+      <p id="wantThanks" class="hint" hidden>ありがとうございます！</p>
+    </section>
+
+    <section class="box danger-zone">
+      <h3>この端末のデータをすべて消す</h3>
+      <button class="btn danger small" id="wipeBtn">すべて消す</button>
+    </section>
+  </div>
+</section>
+
+<article class="wrap guide" id="guide">
+  <h2>古物台帳の書き方ガイド</h2>
+  <p class="lead">古物商は、品物を買い取ったり交換したりするたびに、帳簿（古物台帳）に記録する決まりがあります（古物営業法 第16条）。このページの内容は一般的な目安です。<b>最終的な判断は、営業所のある地域の警察署（生活安全課・防犯係）</b>に確認してください。</p>
+
+  <h3>書く項目（受け入れのとき）</h3>
+  <table class="facts">
+    <tr><th>取引の年月日</th><td>買い取った・交換した日</td></tr>
+    <tr><th>品目と数量</th><td>何を、いくつ（品目は「時計・宝飾品類」「書籍」などの13区分）</td></tr>
+    <tr><th>品物の特徴</th><td>色・型番・サイズ・傷など、ほかの品物と見分けられること</td></tr>
+    <tr><th>相手方の住所・氏名・職業・年齢</th><td>本人確認で確かめた内容</td></tr>
+    <tr><th>本人確認の方法</th><td>運転免許証を見た、など</td></tr>
+  </table>
+  <p>記録は<b>取引のたびに</b>書きます（あとでまとめ書きはできません）。</p>
+
+  <h3>1万円未満なら書かなくていい？（1万円ルール）</h3>
+  <p>1回の取引の総額が<b>1万円未満</b>なら、本人確認と台帳への記録は原則いりません。ただし、次の品物は<b>金額に関係なく必要</b>です。</p>
+  <ul>
+    <li>バイク・原付（部品も含む）</li>
+    <li>家庭用ゲームソフト</li>
+    <li>CD・DVD・ブルーレイなど</li>
+    <li>書籍</li>
+    <li>エアコンの室外機、電気温水器のヒートポンプ、電線、金属製のグレーチング（2025年10月1日から追加）</li>
+  </ul>
+  <p>このアプリでは、品物ごとに「特定の品物」を選ぶと、記録が必要かの目安を表示します。</p>
+
+  <h3>紙じゃなくて、スマホ・PCで記録していいの？</h3>
+  <p>はい。電子データでの記録も認められています。条件は、<b>必要なときにすぐ紙に出せること</b>（印刷できること）です。このアプリは、期間を選んで印刷・PDF保存ができます。</p>
+
+  <h3>どれくらい保存する？</h3>
+  <p><b>最後に記録した日から3年間</b>です。このアプリのデータは端末の中だけにあるので、月に1回は「出力・保存」からバックアップしてください。</p>
+
+  <h3>売ったとき（払い出し）も書く？</h3>
+  <p>売ったときの記録が必要なのは、美術品類・時計・宝飾品類・自動車・バイクなど一部の品物です。それ以外は、受け入れの記録が中心です。</p>
+
+  <h3>よくある質問</h3>
+  <details><summary>データはどこに保存されますか？</summary><p>あなたが使っている端末のブラウザの中だけです。作者のサーバーにも、ほかの会社のサーバーにも送りません。例外として「住所を入れる」ボタンを押したときだけ、<b>郵便番号だけ</b>を住所検索サービス（zipcloud）に送ります。</p></details>
+  <details><summary>スマホとPCで同じデータを使えますか？</summary><p>今はできません。バックアップを保存して、もう一方の端末で「バックアップから戻す」を使うと移せます。</p></details>
+  <details><summary>本当に無料ですか？</summary><p>はい。登録もいりません。将来、有料の追加機能を作るかもしれませんが、今ある機能は無料のまま使えます。</p></details>
+  <details><summary>ホーム画面に置けますか？</summary><p>はい。スマホのブラウザのメニューから「ホーム画面に追加」を選ぶと、アプリのように開けます。</p></details>
+
+  <h3>出典</h3>
+  <ul class="src">
+    <li><a href="https://www.keishicho.metro.tokyo.lg.jp/tetsuzuki/kobutsu/youshiki/chobo_yoshiki.html" rel="noopener" target="_blank">警視庁「帳簿等の様式」</a></li>
+    <li><a href="https://www.keishicho.metro.tokyo.lg.jp/tetsuzuki/kobutsu/kaisetsu/kobutsu_sekoukisoku.html" rel="noopener" target="_blank">警視庁「古物営業法施行規則の改正（1万円未満の対象品目の追加）」</a></li>
+    <li><a href="https://www.npa.go.jp/laws/notification/seian/seiki/20260514kobutsukaishaku.pdf" rel="noopener" target="_blank">警察庁「古物営業法等の解釈運用基準」</a></li>
+  </ul>
+</article>
+</main>
+
+<footer class="site-foot">
+  <div class="wrap">
+    <p><a href="privacy.html">プライバシーと免責</a></p>
+    <p class="small">このアプリは法律の助言をするものではありません。記録の義務や書き方は、営業所を管轄する警察署に確認してください。</p>
+  </div>
+</footer>
+
+<div id="print" aria-hidden="true"></div>
+<div id="toast" class="toast" role="status" hidden></div>
+
+<script src="app.js" type="module"></script>
+</body>
+</html>
